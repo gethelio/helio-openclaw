@@ -8,6 +8,15 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+    ignore:
+      # Pinned to match the main Helio repo (TS 5.9, ESLint 9). Bump these in lockstep
+      # with Helio, not via Dependabot — TS 6 / ESLint 10 break the toolchain here.
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'eslint'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@eslint/js'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
     schedule:
