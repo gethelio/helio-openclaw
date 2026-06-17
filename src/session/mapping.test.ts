@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { mapSession } from '../../src/session/mapping.js'
-import type { PluginHookToolContext } from '../../src/types.js'
+import { mapSession } from './mapping.js'
+import type { PluginHookToolContext } from '../types.js'
 
 const ctx = (over: Partial<PluginHookToolContext>): PluginHookToolContext => ({
   toolName: 'send_message',

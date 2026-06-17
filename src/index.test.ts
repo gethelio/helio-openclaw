@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import definition from '../src/index.js'
-import type { OpenClawPluginApi } from '../src/types.js'
+import definition from './index.js'
+import type { OpenClawPluginApi } from './types.js'
 
 describe('plugin definition', () => {
   it('registers the three governance hooks under the "helio" id', () => {

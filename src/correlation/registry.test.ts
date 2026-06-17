@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CorrelationRegistry } from '../../src/correlation/registry.js'
+import { CorrelationRegistry } from './registry.js'
 
 describe('CorrelationRegistry', () => {
   it('binds and claims an evaluation by toolCallId', () => {
