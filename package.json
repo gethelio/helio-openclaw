@@ -83,16 +83,16 @@
     "openclaw": ">=2026.6.8"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^25.9.3",
-    "eslint": "^9.39.4",
+    "eslint": "^10.5.0",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.7",
     "openclaw": "2026.6.8",
     "prettier": "^3.8.4",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.61.1",
     "vitest": "^4.1.9"
   },
