@@ -86,10 +86,39 @@ describe('CorrelationRegistry', () => {
       expect(reg.reserve({ session: 'oc:s1', toolName: 'send' }).ok).toBe(true)
     })
 
-    it('does not apply the ambiguity block to ID lanes (full concurrency)', () => {
+    it('does not apply the ambiguity block to the toolCallId lane (per-call ids → full concurrency)', () => {
       const reg = new CorrelationRegistry()
       expect(reg.reserve({ toolCallId: 'tc-1', session: 'oc:s1', toolName: 'send' }).ok).toBe(true)
       expect(reg.reserve({ toolCallId: 'tc-2', session: 'oc:s1', toolName: 'send' }).ok).toBe(true)
+    })
+  })
+
+  describe('runId lane fail-closed on ambiguity (runId is per-turn, not per-call)', () => {
+    it('blocks a second call with the same runId and no toolCallId', () => {
+      const reg = new CorrelationRegistry()
+
+      const first = reg.reserve({ runId: 'run-1', session: 'oc:s1', toolName: 'send' })
+      const second = reg.reserve({ runId: 'run-1', session: 'oc:s1', toolName: 'send' })
+
+      expect(first.ok).toBe(true)
+      expect(second).toEqual({ ok: false, reason: 'ambiguous' })
+      expect(reg.stats.ambiguityBlocks).toBe(1)
+    })
+
+    it('does not block distinct runIds', () => {
+      const reg = new CorrelationRegistry()
+      expect(reg.reserve({ runId: 'run-1', session: 'oc:s1', toolName: 'send' }).ok).toBe(true)
+      expect(reg.reserve({ runId: 'run-2', session: 'oc:s1', toolName: 'send' }).ok).toBe(true)
+    })
+
+    it('frees the runId slot after claim, allowing the next sequential call in the turn', () => {
+      const reg = new CorrelationRegistry()
+      const r = reg.reserve({ runId: 'run-1', session: 'oc:s1', toolName: 'send' })
+      if (!r.ok) throw new Error('reserve failed')
+      reg.bind(r.ticket, 'eval-1')
+      reg.claim({ runId: 'run-1', session: 'oc:s1', toolName: 'send' })
+
+      expect(reg.reserve({ runId: 'run-1', session: 'oc:s1', toolName: 'send' }).ok).toBe(true)
     })
   })
 
