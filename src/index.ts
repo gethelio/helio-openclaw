@@ -1,4 +1,5 @@
 import { createHelioClient, type HelioClientConfig } from './client/helio-client.js'
+import { CorrelationRegistry } from './correlation/registry.js'
 import { parseConfig } from './config.js'
 import { createAfterToolCallHook } from './hooks/after-tool-call.js'
 import { createBeforeInstallHook } from './hooks/before-install.js'
@@ -19,8 +20,12 @@ const definition: OpenClawPluginDefinition = {
       evaluateTimeoutMs: adapterConfig.evaluateTimeoutMs,
     }
     const client = createHelioClient(clientConfig)
+    const registry = new CorrelationRegistry()
 
-    api.on('before_tool_call', createBeforeToolCallHook(client))
+    api.on(
+      'before_tool_call',
+      createBeforeToolCallHook({ client, registry, origin: adapterConfig.origin }),
+    )
     api.on('after_tool_call', createAfterToolCallHook(client))
     api.on('before_install', createBeforeInstallHook(client))
   },
