@@ -84,14 +84,31 @@ peer-installed here):
    proceed on a failed decision (not even dev-only). This is a normative MUST in the contract. Pair
    with a short bounded `/evaluate` timeout. Do **not** rely on OpenClaw's `failurePolicyByHook`.
 2. **Correlation is fail-closed on ambiguity.** Bind `after_tool_call` → `evaluation_id` by a key
-   chain: `toolCallId` → `runId` → a **no-ID lane** keyed by `(session, toolName)`. The no-ID lane
-   allows **at most one** in-flight call per `(session, toolName)`; a 2nd concurrent untracked call
-   is **blocked**, not ambiguously bound. TTL-evict unclaimed keys. Telemetry on no-ID-lane use.
+   chain: `toolCallId` → `runId` → a **no-ID lane** keyed by `(session, toolName)`. **Only
+   `toolCallId` is per-call-unique** (full concurrency). **`runId` is _per-turn_** (shared by every
+   tool call in one agent turn), and the no-ID lane is keyed by `(session, toolName)` — so **both
+   the `runId` lane and the no-ID lane are fail-closed on ambiguity**: at most one in-flight call per
+   key, and a 2nd concurrent call on a non-unique key is **blocked**, not ambiguously bound.
+   TTL-evict unclaimed keys. Telemetry on no-ID-lane use + ambiguity blocks.
 3. **Evidence is success-only**, attached on `after_tool_call` (`status:"success"`), extracted from
    `event.result` per explicit config (not magic). Helio soft-drops bad entries and still finalizes.
 4. **A late `/audit` returning `200 already_finalized` is SUCCESS**, not an error (the decision was
    terminal at `/evaluate`).
 5. **Single adapter token** (`HELIO_ADAPTER_TOKEN`); never the SDK token; never `Origin`.
+
+### Known limitations (cooperative `host-enforced` grade)
+
+- **Approval-resolution recording is not enforceable adapter-side.** When `require_approval`
+  resolves, the adapter records it via `POST /approval/:id/resolve` inside the hook's
+  `onResolution` callback. The installed OpenClaw runtime invokes that callback **fire-and-forget**
+  (`notifyPluginApprovalResolution`: `Promise.resolve(onResolution(...)).catch(log.warn)`), so a
+  throw/rejection is only **logged** — it does **not** gate execution. If `/approval/:id/resolve`
+  fails (sideband down), the tool can still run without Helio recording the resolution. The adapter
+  throws to surface it in the host log (best-effort), and it later shows up as a Helio audit anomaly
+  (`approval_unresolved` → `evaluation_expired`), but it cannot be **prevented** here. Fixing this
+  needs an upstream change (an awaited/​deny-capable approval callback or an alternate gating API).
+  **Tracked as an upstream blocker.** Note: this does not affect the `/evaluate` fail-closed
+  guarantee (§4.1), which the host _does_ enforce via `block`.
 
 ## 5. Conventions & working norms
 
