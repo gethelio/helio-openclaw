@@ -3,6 +3,8 @@
 // Bearer `HELIO_ADAPTER_TOKEN` on every call, never an `Origin` header, and **fail-closed**:
 // `/evaluate` unreachable/timeout/non-2xx surfaces as `{ ok: false }`, never a proceed.
 
+import { z } from 'zod'
+
 export interface HelioClientConfig {
   baseUrl: string
   token: string
@@ -27,21 +29,32 @@ export interface EvaluateRequest {
   metadata?: Record<string, unknown>
 }
 
-export type EvaluateDecision =
-  | 'allow'
-  | 'deny'
-  | 'require_approval'
-  | 'rate_limited'
-  | 'spend_limited'
-  | 'dry_run'
+// Proxy responses are parsed with Zod (not asserted) — a malformed response fails closed.
+const evaluateDecisionSchema = z.enum([
+  'allow',
+  'deny',
+  'require_approval',
+  'rate_limited',
+  'spend_limited',
+  'dry_run',
+])
 
-export interface EvaluateResponse {
-  evaluation_id: string
-  decision: EvaluateDecision
-  reason?: string
-  feedback?: { message?: string }
-  approval?: { id: string; timeout_ms?: number; resolve_path?: string }
-}
+const evaluateResponseSchema = z.object({
+  evaluation_id: z.string(),
+  decision: evaluateDecisionSchema,
+  reason: z.string().optional(),
+  feedback: z.object({ message: z.string().optional() }).optional(),
+  approval: z
+    .object({
+      id: z.string(),
+      timeout_ms: z.number().optional(),
+      resolve_path: z.string().optional(),
+    })
+    .optional(),
+})
+
+export type EvaluateDecision = z.infer<typeof evaluateDecisionSchema>
+export type EvaluateResponse = z.infer<typeof evaluateResponseSchema>
 
 export type EvaluateOutcome =
   | { ok: true; response: EvaluateResponse }
@@ -72,12 +85,14 @@ export interface InstallScanRequest {
   metadata?: Record<string, unknown>
 }
 
-export interface InstallScanResponse {
-  evaluation_id: string
-  decision: 'allow' | 'deny'
-  reason?: string
-  feedback?: { message?: string }
-}
+const installScanResponseSchema = z.object({
+  evaluation_id: z.string(),
+  decision: z.enum(['allow', 'deny']),
+  reason: z.string().optional(),
+  feedback: z.object({ message: z.string().optional() }).optional(),
+})
+
+export type InstallScanResponse = z.infer<typeof installScanResponseSchema>
 
 export type InstallScanOutcome =
   | { ok: true; response: InstallScanResponse }
@@ -136,8 +151,11 @@ export function createHelioClient(
         if (!res.ok) {
           return { ok: false, reason: `Helio /evaluate returned ${String(res.status)}` }
         }
-        const response = (await res.json()) as EvaluateResponse
-        return { ok: true, response }
+        const parsed = evaluateResponseSchema.safeParse(await res.json())
+        if (!parsed.success) {
+          return { ok: false, reason: 'Helio returned a malformed /evaluate response' }
+        }
+        return { ok: true, response: parsed.data }
       } catch {
         return { ok: false, reason: 'Helio governance unavailable' }
       } finally {
@@ -164,8 +182,11 @@ export function createHelioClient(
         if (!res.ok) {
           return { ok: false, reason: `Helio /install-scan returned ${String(res.status)}` }
         }
-        const response = (await res.json()) as InstallScanResponse
-        return { ok: true, response }
+        const parsed = installScanResponseSchema.safeParse(await res.json())
+        if (!parsed.success) {
+          return { ok: false, reason: 'Helio returned a malformed /install-scan response' }
+        }
+        return { ok: true, response: parsed.data }
       } catch {
         return { ok: false, reason: 'Helio governance unavailable' }
       }

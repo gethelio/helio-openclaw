@@ -94,6 +94,17 @@ describe('helio client — evaluate fail-closed', () => {
     })
   })
 
+  it('fails closed on a malformed /evaluate response', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response(JSON.stringify({ nonsense: true }), { status: 200 })),
+    )
+    const client = createHelioClient(config, { fetch: fetchImpl })
+
+    const outcome = await client.evaluate({ tool: { name: 'send_message' } })
+
+    expect(outcome.ok).toBe(false)
+  })
+
   it('fails closed when /evaluate exceeds the timeout', async () => {
     // Slow fetch that only settles after 1s, unless the client aborts it first.
     const fetchImpl = vi.fn<typeof fetch>(
@@ -189,6 +200,17 @@ describe('helio client — installScan', () => {
 
   it('fails closed on a 5xx response', async () => {
     const fetchImpl = vi.fn<typeof fetch>(() => Promise.resolve(new Response('', { status: 502 })))
+    const client = createHelioClient(config, { fetch: fetchImpl })
+
+    const outcome = await client.installScan({ package: { name: 'left-pad', source: 'npm' } })
+
+    expect(outcome.ok).toBe(false)
+  })
+
+  it('fails closed on a malformed /install-scan response', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response(JSON.stringify({ nope: 1 }), { status: 200 })),
+    )
     const client = createHelioClient(config, { fetch: fetchImpl })
 
     const outcome = await client.installScan({ package: { name: 'left-pad', source: 'npm' } })
