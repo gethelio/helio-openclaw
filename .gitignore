@@ -1,0 +1,29 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# test / coverage
+coverage/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# env / secrets
+.env
+.env.*.local
+*.pem
+
+# os
+.DS_Store
+
+# local dev + agent state (kept out of the published OSS repo)
+.local/
+docs/.local/
+.claude/*
+!/.claude/settings.json

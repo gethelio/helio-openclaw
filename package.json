@@ -1,0 +1,86 @@
+{
+  "name": "@gethelio/helio-openclaw",
+  "version": "0.1.0",
+  "description": "OpenClaw plugin adapter for Helio — governs in-process tool calls via Helio's policy sideband (fail-closed).",
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "helio",
+    "ai-agent",
+    "governance",
+    "policy",
+    "guardrails",
+    "tool-calls",
+    "audit"
+  ],
+  "license": "Apache-2.0",
+  "author": "Helio Authors",
+  "homepage": "https://github.com/gethelio/helio-openclaw#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gethelio/helio-openclaw.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gethelio/helio-openclaw/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./openclaw.plugin.json": "./openclaw.plugin.json"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  },
+  "files": [
+    "dist",
+    "openclaw.plugin.json",
+    "examples",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepublishOnly": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.19.0",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.6.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@types/node": "^25.9.3",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "openclaw": "2026.6.8",
+    "prettier": "^3.8.4",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.61.1",
+    "vitest": "^4.1.9"
+  }
+}
