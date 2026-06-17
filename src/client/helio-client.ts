@@ -5,28 +5,34 @@
 
 import { z } from 'zod'
 
+/** Resolved client configuration. Mirrors the manifest `configSchema` in `openclaw.plugin.json`. */
 export interface HelioClientConfig {
-  baseUrl: string
-  token: string
-  origin: string
-  evaluateTimeoutMs: number
+  readonly baseUrl: string
+  readonly token: string
+  readonly origin: string
+  readonly evaluateTimeoutMs: number
 }
 
+/** Injectable dependencies (test seam). */
 export interface HelioClientDeps {
-  fetch?: typeof fetch
+  readonly fetch?: typeof fetch
 }
 
+/**
+ * Request body for `POST /evaluate`. DTO: snake_case wire fields. `origin` is injected by the
+ * client from config, so callers omit it.
+ */
 export interface EvaluateRequest {
-  tool: {
-    name: string
-    description?: string
-    input_schema?: Record<string, unknown>
-    annotations?: Record<string, unknown>
+  readonly tool: {
+    readonly name: string
+    readonly description?: string
+    readonly input_schema?: Record<string, unknown>
+    readonly annotations?: Record<string, unknown>
   }
-  arguments?: Record<string, unknown>
-  agent_id?: string
-  session_id?: string
-  metadata?: Record<string, unknown>
+  readonly arguments?: Record<string, unknown>
+  readonly agent_id?: string
+  readonly session_id?: string
+  readonly metadata?: Record<string, unknown>
 }
 
 // Proxy responses are parsed with Zod (not asserted) — a malformed response fails closed.
@@ -39,78 +45,104 @@ const evaluateDecisionSchema = z.enum([
   'dry_run',
 ])
 
-const evaluateResponseSchema = z.object({
-  evaluation_id: z.string(),
-  decision: evaluateDecisionSchema,
-  reason: z.string().optional(),
-  feedback: z.object({ message: z.string().optional() }).optional(),
-  approval: z
-    .object({
-      id: z.string(),
-      timeout_ms: z.number().optional(),
-      resolve_path: z.string().optional(),
-    })
-    .optional(),
-})
+const evaluateResponseSchema = z
+  .object({
+    evaluation_id: z.string(),
+    decision: evaluateDecisionSchema,
+    reason: z.string().optional(),
+    feedback: z.object({ message: z.string().optional() }).optional(),
+    approval: z
+      .object({
+        id: z.string(),
+        timeout_ms: z.number().optional(),
+        resolve_path: z.string().optional(),
+      })
+      .optional(),
+  })
+  .readonly()
 
+/** The `/evaluate` decision outcomes. */
 export type EvaluateDecision = z.infer<typeof evaluateDecisionSchema>
+/** Parsed `/evaluate` response. */
 export type EvaluateResponse = z.infer<typeof evaluateResponseSchema>
 
+/** Result of an evaluate call. Fail-closed: `{ ok: false }` whenever no valid decision was obtained. */
 export type EvaluateOutcome =
   | { ok: true; response: EvaluateResponse }
   | { ok: false; reason: string }
 
+/** A single evidence entry attached to a successful audit. DTO: snake_case wire fields. */
 export interface AuditEvidenceEntry {
-  evidence_key: string
-  evidence_data: unknown
-  ttl_seconds?: number
+  readonly evidence_key: string
+  readonly evidence_data: unknown
+  readonly ttl_seconds?: number
 }
 
+/** Request body for `POST /audit`. */
 export interface AuditRequest {
-  evaluation_id: string
-  status: 'success' | 'error' | 'not_executed'
-  error?: string
-  duration_ms?: number
-  result?: unknown
-  actual_amount?: number
-  evidence?: AuditEvidenceEntry[]
+  readonly evaluation_id: string
+  readonly status: 'success' | 'error' | 'not_executed'
+  readonly error?: string
+  readonly duration_ms?: number
+  readonly result?: unknown
+  readonly actual_amount?: number
+  readonly evidence?: readonly AuditEvidenceEntry[]
 }
 
-// Audit is best-effort: the tool already ran, so a failure is reported (for telemetry/logging),
-// never thrown. A 200 `already_finalized` replay is success, not an error.
+/**
+ * Result of an audit call. Best-effort: the tool already ran, so a failure is reported (for
+ * telemetry/logging), never thrown. A 200 `already_finalized` replay is success, not an error.
+ */
 export type AuditOutcome = { ok: true } | { ok: false; reason: string }
 
+/** Request body for `POST /install-scan`. DTO: snake_case wire fields. */
 export interface InstallScanRequest {
-  package: { name: string; version?: string; source: string; spec?: string }
-  metadata?: Record<string, unknown>
+  readonly package: {
+    readonly name: string
+    readonly version?: string
+    readonly source: string
+    readonly spec?: string
+  }
+  readonly metadata?: Record<string, unknown>
 }
 
-const installScanResponseSchema = z.object({
-  evaluation_id: z.string(),
-  decision: z.enum(['allow', 'deny']),
-  reason: z.string().optional(),
-  feedback: z.object({ message: z.string().optional() }).optional(),
-})
+const installScanResponseSchema = z
+  .object({
+    evaluation_id: z.string(),
+    decision: z.enum(['allow', 'deny']),
+    reason: z.string().optional(),
+    feedback: z.object({ message: z.string().optional() }).optional(),
+  })
+  .readonly()
 
+/** Parsed `/install-scan` response. */
 export type InstallScanResponse = z.infer<typeof installScanResponseSchema>
 
+/** Result of an install-scan call. Fail-closed when the scan can't be obtained. */
 export type InstallScanOutcome =
   | { ok: true; response: InstallScanResponse }
   | { ok: false; reason: string }
 
+/** Request body for `POST /approval/:id/resolve`. */
 export interface ApprovalResolveRequest {
-  resolution: 'approved' | 'denied' | 'timeout' | 'cancelled'
-  resolved_by?: string
-  reason?: string
-  scope?: 'once' | 'always'
+  readonly resolution: 'approved' | 'denied' | 'timeout' | 'cancelled'
+  readonly resolved_by?: string
+  readonly reason?: string
+  readonly scope?: 'once' | 'always'
 }
 
+/** Result of an approval-resolve call. */
 export type ResolveApprovalOutcome = { ok: true } | { ok: false; reason: string }
 
+/** Token-bearing client for the four Helio governance sideband endpoints. */
 export interface HelioClient {
+  /** `POST /evaluate` — decide a tool call. Fails closed when no valid decision is obtained. */
   evaluate(req: EvaluateRequest): Promise<EvaluateOutcome>
+  /** `POST /audit` — record the outcome. Best-effort; a 200 `already_finalized` replay is success. */
   audit(req: AuditRequest): Promise<AuditOutcome>
+  /** `POST /install-scan` — evaluate a package/skill install. Fails closed. */
   installScan(req: InstallScanRequest): Promise<InstallScanOutcome>
+  /** `POST /approval/:id/resolve` — record a natively-handled approval resolution. */
   resolveApproval(approvalId: string, req: ApprovalResolveRequest): Promise<ResolveApprovalOutcome>
 }
 
