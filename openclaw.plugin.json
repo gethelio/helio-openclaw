@@ -1,0 +1,37 @@
+{
+  "$schema": "https://openclaw.ai/schemas/plugin.json",
+  "id": "helio",
+  "name": "Helio Governance",
+  "description": "Routes OpenClaw tool calls and installs through Helio's policy sideband for allow/deny/approval/limit decisions and audit. Fail-closed: if Helio is unreachable, tool calls are blocked.",
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "helioBaseUrl": {
+        "type": "string",
+        "format": "uri",
+        "default": "http://127.0.0.1:3200",
+        "description": "Base URL of the Helio governance sideband."
+      },
+      "tokenEnv": {
+        "type": "string",
+        "default": "HELIO_ADAPTER_TOKEN",
+        "description": "Name of the environment variable holding the adapter bearer token. Never the SDK token."
+      },
+      "origin": {
+        "type": "string",
+        "pattern": "^[a-z0-9_-]{1,64}$",
+        "default": "openclaw",
+        "description": "Origin string reported to Helio for audit attribution."
+      },
+      "evaluateTimeoutMs": {
+        "type": "integer",
+        "minimum": 1,
+        "default": 2000,
+        "description": "Bounded timeout for POST /evaluate. On timeout the tool call fails closed (blocked)."
+      }
+    }
+  }
+}
