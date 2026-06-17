@@ -92,6 +92,18 @@ adapter never sends an `Origin` header (Helio's browser-forgery guard rejects it
 
 See [`docs/adapter-api.md`](./docs/adapter-api.md) for the canonical sideband wire contract.
 
+## Known limitations
+
+This is the cooperative `host-enforced` enforcement grade — it relies on OpenClaw's hook gate.
+The `/evaluate` decision **is** enforced (a `block` result prevents the tool from running). One
+known gap: when an approval resolves, the adapter records it via `POST /approval/:id/resolve` in
+the hook's `onResolution` callback, but the OpenClaw runtime invokes that callback
+**fire-and-forget** (failures are logged, not awaited). So if recording the resolution fails (e.g.
+the Helio sideband is down) the tool can still run without Helio recording the approval. The
+adapter surfaces the failure (host log; and Helio's audit later flags it as `approval_unresolved` →
+`evaluation_expired`), but cannot **prevent** it adapter-side — closing this needs an upstream
+OpenClaw change. Tracked upstream.
+
 ## Development
 
 ```sh

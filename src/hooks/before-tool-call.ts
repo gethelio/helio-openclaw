@@ -74,7 +74,7 @@ export function createBeforeToolCallHook(deps: BeforeToolCallDeps) {
       ...(event.runId !== undefined ? { runId: event.runId } : {}),
     })
     if (!reservation.ok) {
-      return { block: true, blockReason: 'Helio cannot correlate concurrent untracked tool calls' }
+      return { block: true, blockReason: 'Helio cannot correlate ambiguous concurrent tool calls' }
     }
 
     const outcome = await client.evaluate(buildRequest(event, ctx, session))
@@ -118,10 +118,19 @@ export function createBeforeToolCallHook(deps: BeforeToolCallDeps) {
             timeoutBehavior: 'deny',
             ...(approval.timeout_ms !== undefined ? { timeoutMs: approval.timeout_ms } : {}),
             onResolution: async (decision) => {
-              await client.resolveApproval(approval.id, {
+              const outcome = await client.resolveApproval(approval.id, {
                 ...mapResolution(decision),
                 resolved_by: resolvedBy,
               })
+              if (!outcome.ok) {
+                // Best-effort signal only. The installed OpenClaw runtime invokes onResolution
+                // fire-and-forget (`Promise.resolve(onResolution(...)).catch(log.warn)`), so this
+                // throw is logged by the host but does NOT gate execution — a failed resolution
+                // recording cannot be enforced adapter-side today. See AGENTS.md "Known limitations";
+                // tracked as an upstream blocker. The gap still surfaces (host warn log, and later a
+                // Helio audit anomaly: approval_unresolved → evaluation_expired).
+                throw new Error(`Helio could not record the approval resolution: ${outcome.reason}`)
+              }
             },
           },
         }

@@ -154,6 +154,22 @@ describe('before_tool_call', () => {
     })
   })
 
+  // NOTE: the throw is a best-effort signal — the host only logs it (see hook comment), it does
+  // not gate execution. The test asserts the adapter surfaces the failure rather than swallowing it.
+  it('onResolution surfaces a failed approval-resolution recording (does not swallow it)', async () => {
+    const { hook, resolveApproval } = setup({
+      ok: true,
+      response: { evaluation_id: 'e', decision: 'require_approval', approval: { id: 'appr-1' } },
+    })
+    resolveApproval.mockResolvedValue({ ok: false, reason: 'sideband down' })
+
+    const result = await hook(event(), ctx())
+
+    await expect(result.requireApproval?.onResolution?.('allow-once')).rejects.toThrow(
+      /could not record/i,
+    )
+  })
+
   it('fails closed and releases the reservation when evaluate fails', async () => {
     const { hook, registry } = setup({ ok: false, reason: 'down' })
 
@@ -173,7 +189,7 @@ describe('before_tool_call', () => {
 
     expect(second).toEqual({
       block: true,
-      blockReason: 'Helio cannot correlate concurrent untracked tool calls',
+      blockReason: 'Helio cannot correlate ambiguous concurrent tool calls',
     })
     await first
   })
