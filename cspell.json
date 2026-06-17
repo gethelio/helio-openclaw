@@ -1,0 +1,18 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "gethelio",
+    "openclaw",
+    "helio",
+    "clawhub",
+    "sideband",
+    "tsup",
+    "vitest",
+    "nvmrc",
+    "tseslint",
+    "noEmit",
+    "treeshake"
+  ],
+  "ignorePaths": ["dist", "node_modules", "pnpm-lock.yaml", "CHANGELOG.md"]
+}

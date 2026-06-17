@@ -1,0 +1,7 @@
+dist
+coverage
+node_modules
+pnpm-lock.yaml
+CHANGELOG.md
+# Vendored verbatim from the Helio repo — keep byte-faithful to the source of truth.
+docs/adapter-api.md
