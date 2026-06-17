@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createBeforeToolCallHook } from '../../src/hooks/before-tool-call.js'
-import { CorrelationRegistry } from '../../src/correlation/registry.js'
-import type { EvaluateOutcome, HelioClient } from '../../src/client/helio-client.js'
-import type { PluginHookBeforeToolCallEvent, PluginHookToolContext } from '../../src/types.js'
+import { createBeforeToolCallHook } from './before-tool-call.js'
+import { CorrelationRegistry } from '../correlation/registry.js'
+import type { EvaluateOutcome, HelioClient } from '../client/helio-client.js'
+import type { PluginHookBeforeToolCallEvent, PluginHookToolContext } from '../types.js'
 
 function setup(outcome: EvaluateOutcome) {
   const evaluate = vi.fn<HelioClient['evaluate']>(() => Promise.resolve(outcome))

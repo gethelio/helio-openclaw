@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createHelioClient, type HelioClientConfig } from '../../src/client/helio-client.js'
+import { createHelioClient, type HelioClientConfig } from './helio-client.js'
 
 const config: HelioClientConfig = {
   baseUrl: 'http://127.0.0.1:3200',
