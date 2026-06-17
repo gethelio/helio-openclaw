@@ -35,12 +35,30 @@ development without a Helio proxy, simply do not enable this plugin.
 
 ## Install
 
+Install it into your OpenClaw gateway with OpenClaw's plugin installer (it resolves the package
+from npm or ClawHub and registers the compiled entry declared by this package's
+`openclaw.extensions` field):
+
+```sh
+openclaw plugin install @gethelio/helio-openclaw
+# no global openclaw CLI on your PATH? run it via npx:
+npx openclaw plugin install @gethelio/helio-openclaw
+# once published to ClawHub, the clawhub: spec also works:
+openclaw plugin install clawhub:@gethelio/helio-openclaw
+```
+
+> This is a plugin, not a CLI — it ships no executable, so `npx @gethelio/helio-openclaw` does
+> nothing. Use `openclaw plugin install` (above) to register it with a gateway.
+
+**Embedding OpenClaw in your own Node app?** Add it as a dependency instead and let the gateway
+auto-discover it on startup via the `openclaw.extensions` manifest field:
+
 ```sh
 npm install @gethelio/helio-openclaw
 # or: pnpm add @gethelio/helio-openclaw
 ```
 
-`openclaw` is a peer dependency, supplied by your OpenClaw gateway.
+`openclaw` itself is a peer dependency, supplied by your gateway.
 
 ## Configure
 
