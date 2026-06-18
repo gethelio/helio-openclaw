@@ -14,4 +14,5 @@ export type {
   PluginHookBeforeToolCallEvent,
   PluginHookBeforeToolCallResult,
   PluginHookToolContext,
+  PluginInstallRequestKind,
 } from 'openclaw/plugin-sdk/plugin-runtime'
