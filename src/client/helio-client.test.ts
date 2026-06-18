@@ -212,6 +212,28 @@ describe('helio client — installScan', () => {
 
     expect(outcome.ok).toBe(false)
   })
+
+  it('fails closed when /install-scan exceeds the timeout', async () => {
+    // install-scan is a gating call like /evaluate; a hung proxy must fail closed promptly,
+    // not hang the install hook indefinitely.
+    const fetchImpl = vi.fn<typeof fetch>(
+      (_url, init) =>
+        new Promise((resolve, reject) => {
+          const slow = setTimeout(() => {
+            resolve(jsonResponse({ evaluation_id: 'i', decision: 'allow' }))
+          }, 1000)
+          init?.signal?.addEventListener('abort', () => {
+            clearTimeout(slow)
+            reject(new Error('aborted'))
+          })
+        }),
+    )
+    const client = createHelioClient({ ...config, evaluateTimeoutMs: 10 }, { fetch: fetchImpl })
+
+    const outcome = await client.installScan({ package: { name: 'left-pad', source: 'npm' } })
+
+    expect(outcome.ok).toBe(false)
+  })
 })
 
 describe('helio client — resolveApproval', () => {

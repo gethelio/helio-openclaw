@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { createBeforeToolCallHook } from './before-tool-call.js'
 import { CorrelationRegistry } from '../correlation/registry.js'
 import type { EvaluateOutcome, HelioClient } from '../client/helio-client.js'
-import type { PluginHookBeforeToolCallEvent, PluginHookToolContext } from '../types.js'
+import type {
+  PluginApprovalResolution,
+  PluginHookBeforeToolCallEvent,
+  PluginHookToolContext,
+} from '../types.js'
 
 function setup(outcome: EvaluateOutcome) {
   const evaluate = vi.fn<HelioClient['evaluate']>(() => Promise.resolve(outcome))
@@ -169,6 +173,41 @@ describe('before_tool_call', () => {
       /could not record/i,
     )
   })
+
+  it.each<PluginApprovalResolution>(['deny', 'timeout', 'cancelled'])(
+    'releases the correlation slot when an approval resolves to %s (tool will not run)',
+    async (decision) => {
+      const { hook, registry } = setup({
+        ok: true,
+        response: { evaluation_id: 'e', decision: 'require_approval', approval: { id: 'appr-1' } },
+      })
+
+      const result = await hook(event(), ctx({ sessionId: 's1' }))
+      await result.requireApproval?.onResolution?.(decision)
+
+      // Slot freed → a fresh no-ID reserve for the same (session, tool) succeeds instead of
+      // being wrongly ambiguity-blocked by a leaked, never-claimed reservation.
+      expect(registry.reserve({ session: 'oc:s1', toolName: 'send_message' }).ok).toBe(true)
+    },
+  )
+
+  it.each<PluginApprovalResolution>(['allow-once', 'allow-always'])(
+    'keeps the correlation slot reserved when an approval is %s (after_tool_call will claim it)',
+    async (decision) => {
+      const { hook, registry } = setup({
+        ok: true,
+        response: { evaluation_id: 'e', decision: 'require_approval', approval: { id: 'appr-1' } },
+      })
+
+      const result = await hook(event(), ctx({ sessionId: 's1' }))
+      await result.requireApproval?.onResolution?.(decision)
+
+      expect(registry.reserve({ session: 'oc:s1', toolName: 'send_message' })).toEqual({
+        ok: false,
+        reason: 'ambiguous',
+      })
+    },
+  )
 
   it('fails closed and releases the reservation when evaluate fails', async () => {
     const { hook, registry } = setup({ ok: false, reason: 'down' })

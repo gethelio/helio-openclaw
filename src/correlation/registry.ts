@@ -48,17 +48,29 @@ export class CorrelationRegistry {
   private readonly pending = new Map<string, PendingEntry>()
   private readonly ttlMs: number
   private readonly now: () => number
+  private lastSweepAt: number
   private noIdLaneUses = 0
   private ambiguityBlocks = 0
 
   constructor(options: CorrelationRegistryOptions = {}) {
     this.ttlMs = options.ttlMs ?? 600_000
     this.now = options.now ?? Date.now
+    this.lastSweepAt = this.now()
+  }
+
+  /** Number of pending (reserved, not-yet-claimed) entries — telemetry + leak guard. */
+  get size(): number {
+    return this.pending.size
   }
 
   /** Reserve a slot before calling `/evaluate`. Rejects a concurrent non-unique-keyed call. */
   reserve(meta: CorrelationMeta): ReserveResult {
     const { key, lane } = keyOf(meta)
+
+    // Lazy per-key eviction only reclaims a key that is touched again; a per-call-unique key
+    // (toolCallId) whose after_tool_call never arrives is never re-touched and would leak. Sweep
+    // expired entries periodically (at most once per ttl) so memory stays bounded without a timer.
+    this.maybeSweep()
 
     const existing = this.pending.get(key)
     if (existing && this.isExpired(existing)) this.pending.delete(key)
@@ -102,5 +114,16 @@ export class CorrelationRegistry {
 
   private isExpired(entry: PendingEntry): boolean {
     return this.now() >= entry.expiresAt
+  }
+
+  // Evict all expired entries, but at most once per TTL window so the O(n) scan is amortized away
+  // under load. Growth only happens via reserve(), so sweeping there bounds the map.
+  private maybeSweep(): void {
+    const now = this.now()
+    if (now - this.lastSweepAt < this.ttlMs) return
+    for (const [key, entry] of this.pending) {
+      if (now >= entry.expiresAt) this.pending.delete(key)
+    }
+    this.lastSweepAt = now
   }
 }

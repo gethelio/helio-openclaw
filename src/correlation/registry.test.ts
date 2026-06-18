@@ -134,5 +134,21 @@ describe('CorrelationRegistry', () => {
       expect(reg.claim({ session: 'oc:s1', toolName: 'send' })).toBeUndefined()
       expect(reg.reserve({ session: 'oc:s1', toolName: 'send' }).ok).toBe(true)
     })
+
+    it('sweeps expired unique-key entries on a later reserve so never-claimed slots cannot leak', () => {
+      let clock = 0
+      const reg = new CorrelationRegistry({ ttlMs: 1000, now: () => clock })
+      // Per-call-unique toolCallId slots that are never claimed (e.g. denied approvals whose
+      // after_tool_call never fires). Lazy per-key eviction never reclaims them — only a sweep can.
+      reg.reserve({ toolCallId: 'tc-1', session: 'oc:s1', toolName: 'send' })
+      reg.reserve({ toolCallId: 'tc-2', session: 'oc:s1', toolName: 'send' })
+      expect(reg.size).toBe(2)
+
+      // Well past the TTL: a new reserve triggers a sweep that evicts the stale entries.
+      clock = 1_000_000
+      reg.reserve({ toolCallId: 'tc-3', session: 'oc:s1', toolName: 'send' })
+
+      expect(reg.size).toBe(1) // only the fresh entry survives
+    })
   })
 })
