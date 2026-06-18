@@ -31,6 +31,37 @@
         "minimum": 1,
         "default": 2000,
         "description": "Bounded timeout for POST /evaluate. On timeout the tool call fails closed (blocked)."
+      },
+      "evidence": {
+        "type": "object",
+        "default": {},
+        "description": "Success-only evidence-extraction rules keyed by tool name. Each rule pulls a value from the tool's result and grounds it under an evidence key (which must be named by a Helio evidence.requires policy rule, or it is silently not stored).",
+        "additionalProperties": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "path"],
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "description": "evidence_key sent to POST /audit; must match a policy evidence.requires key."
+              },
+              "path": {
+                "type": "array",
+                "items": { "type": "string" },
+                "minItems": 1,
+                "description": "Explicit segment path into event.result (e.g. [\"url\",\"host\"]). Array form, not dotted, so keys containing '.' are unambiguous. A missing path skips the entry."
+              },
+              "ttlSeconds": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional TTL forwarded as ttl_seconds on the evidence entry."
+              }
+            }
+          }
+        }
       }
     }
   }
