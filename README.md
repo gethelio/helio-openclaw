@@ -33,6 +33,12 @@ what couples tool execution to Helio's liveness, and there is no escape hatch to
 failed decision." **A Helio outage will halt tool calls mid-conversation.** For local
 development without a Helio proxy, simply do not enable this plugin.
 
+The same posture covers **misconfiguration**: if the adapter token is missing or the plugin
+config is invalid, the adapter still registers — but every tool call and install is blocked, with
+a loud error log. It never leaves the tool surface ungoverned (it does not rely on the host
+aborting startup), so a config mistake fails closed and visibly rather than silently bypassing
+governance.
+
 ## Install
 
 Install it into your OpenClaw gateway with OpenClaw's plugin installer (it resolves the package
@@ -81,6 +87,30 @@ export HELIO_ADAPTER_TOKEN="<adapter-scope bearer token from Helio>"
 
 The token is the **adapter-scope** token (`HELIO_ADAPTER_TOKEN`), never the SDK token. The
 adapter never sends an `Origin` header (Helio's browser-forgery guard rejects it).
+
+### Grounding evidence (optional)
+
+To let a later [evidence-grounded policy](./docs/adapter-api.md#populating-evidence) enforce on
+facts a tool produced, configure **success-only** extraction rules keyed by tool name. Each rule
+pulls a value out of `event.result` by an **explicit segment path** (array form, not a dotted
+string — a key containing `.` stays unambiguous) and grounds it under an `evidence_key`:
+
+```jsonc
+{
+  "evidence": {
+    "send_email": [
+      { "key": "recipient", "path": ["to"], "ttlSeconds": 300 },
+      { "key": "message_id", "path": ["id"] },
+    ],
+    "http_request": [{ "key": "host", "path": ["url", "host"] }],
+  },
+}
+```
+
+Evidence is attached only on a successful outcome; a rule whose path is absent in the result is
+silently skipped (never sent as `undefined`). Each `key` **must** be named by a Helio
+`evidence.requires` policy rule — an unlisted key is silently not stored by the proxy, so a later
+grounded `/evaluate` would fail closed.
 
 ## How it works
 
