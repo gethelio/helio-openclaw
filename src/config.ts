@@ -17,11 +17,11 @@ export type EvidenceConfig = Readonly<Record<string, readonly EvidenceRule[]>>
 
 // Resolved adapter configuration. Mirrors the manifest `configSchema` in openclaw.plugin.json.
 export interface AdapterConfig {
-  helioBaseUrl: string
-  tokenEnv: string
-  origin: string
-  evaluateTimeoutMs: number
-  evidence: EvidenceConfig
+  readonly helioBaseUrl: string
+  readonly tokenEnv: string
+  readonly origin: string
+  readonly evaluateTimeoutMs: number
+  readonly evidence: EvidenceConfig
 }
 
 export const DEFAULT_CONFIG: AdapterConfig = {
@@ -46,7 +46,15 @@ const evidenceRuleSchema = z
 const adapterConfigSchema = z.object({
   helioBaseUrl: z
     .string()
-    .refine((s) => URL.canParse(s), 'must be a valid URL')
+    .refine((s) => {
+      // Must be a parseable http(s) URL — the sideband only speaks HTTP, so reject ftp:/file:/etc.
+      try {
+        const { protocol } = new URL(s)
+        return protocol === 'http:' || protocol === 'https:'
+      } catch {
+        return false
+      }
+    }, 'must be an http(s) URL')
     .default(DEFAULT_CONFIG.helioBaseUrl),
   tokenEnv: z.string().min(1).default(DEFAULT_CONFIG.tokenEnv),
   origin: z

@@ -55,6 +55,13 @@ describe('parseConfig', () => {
     expect(parseConfig({ helioBaseUrl: 'not-a-url' }).ok).toBe(false)
   })
 
+  it('rejects a parseable but non-http(s) base URL', () => {
+    // URL.canParse alone accepts ftp:/file:/etc; the sideband only speaks HTTP.
+    expect(parseConfig({ helioBaseUrl: 'ftp://127.0.0.1:3200' }).ok).toBe(false)
+    expect(parseConfig({ helioBaseUrl: 'file:///etc/passwd' }).ok).toBe(false)
+    expect(parseConfig({ helioBaseUrl: 'https://helio.internal:3200' }).ok).toBe(true)
+  })
+
   it('rejects an evidence rule with an empty path', () => {
     const result = parseConfig({ evidence: { send_email: [{ key: 'recipient', path: [] }] } })
     expect(result.ok).toBe(false)
