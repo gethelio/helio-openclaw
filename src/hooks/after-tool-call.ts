@@ -172,11 +172,15 @@ export function createAfterToolCallHook(deps: AfterToolCallDeps) {
     const result = event.result !== undefined ? safeJsonSnapshot(event.result) : undefined
 
     // Snapshot evidence per entry so one unserializable extracted value drops only its own entry,
-    // not the valid grounding facts beside it.
+    // not the valid grounding facts beside it. A snapshot can *succeed* yet silently drop
+    // `evidence_data` when the extracted value is a function/symbol (JSON.stringify omits those
+    // from an object rather than throwing), leaving a malformed entry with no required field — so
+    // also drop any entry whose `evidence_data` did not survive the round-trip.
     const safeEvidence: AuditEvidenceEntry[] = []
     for (const entry of evidence) {
       const snapshot = safeJsonSnapshot(entry)
-      if (snapshot.ok) safeEvidence.push(snapshot.value)
+      if (snapshot.ok && snapshot.value.evidence_data !== undefined)
+        safeEvidence.push(snapshot.value)
     }
 
     const base: AuditRequest = {
