@@ -390,6 +390,37 @@ describe('after_tool_call evidence extraction', () => {
     expect(() => JSON.stringify(body)).not.toThrow()
   })
 
+  it('drops an entry whose evidence_data serializes away (function/symbol), not only ones that throw', async () => {
+    const { client, audit } = makeClient()
+    const registry = new CorrelationRegistry()
+    bind(registry, 'eval-e11', { session: 'oc:s1', toolName: 'send_email', toolCallId: 'tc-11' })
+    const hook = createAfterToolCallHook({
+      client,
+      registry,
+      evidence: {
+        send_email: [
+          { key: 'recipient', path: ['to'] },
+          { key: 'cb', path: ['callback'] },
+        ],
+      },
+    })
+
+    // `callback` resolves to a function. JSON.stringify silently OMITS function/symbol properties
+    // (it does not throw), so the snapshot would succeed with `evidence_data` gone — a malformed
+    // entry missing its required field. It must be dropped, not sent.
+    await hook(
+      event({
+        toolName: 'send_email',
+        toolCallId: 'tc-11',
+        result: { to: 'a@b.com', callback: Math.max },
+      }),
+      ctx({ toolName: 'send_email', sessionId: 's1', toolCallId: 'tc-11' }),
+    )
+
+    const body = audit.mock.calls[0]?.[0]
+    expect(body?.evidence).toEqual([{ evidence_key: 'recipient', evidence_data: 'a@b.com' }])
+  })
+
   // The sideband rejects bodies over 1 MiB (docs/adapter-api.md), so an oversized optional field
   // must not 413 the mandatory audit for a call that ran. Drop result first, then trim evidence.
   const overOneMiB = 'x'.repeat(1_100_000)
