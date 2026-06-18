@@ -118,6 +118,12 @@ export function createBeforeToolCallHook(deps: BeforeToolCallDeps) {
             timeoutBehavior: 'deny',
             ...(approval.timeout_ms !== undefined ? { timeoutMs: approval.timeout_ms } : {}),
             onResolution: async (decision) => {
+              // When the resolution means the tool will NOT run (denied/timed-out/cancelled), no
+              // after_tool_call will arrive to claim the reservation — free it now so the slot
+              // can't leak or wrongly ambiguity-block the next call on this (runId/no-ID) key.
+              if (decision === 'deny' || decision === 'timeout' || decision === 'cancelled') {
+                registry.release(reservation.ticket)
+              }
               const outcome = await client.resolveApproval(approval.id, {
                 ...mapResolution(decision),
                 resolved_by: resolvedBy,

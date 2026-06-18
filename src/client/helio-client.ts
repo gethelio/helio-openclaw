@@ -167,31 +167,37 @@ export function createHelioClient(
     return fetchImpl(`${config.baseUrl}${path}`, init)
   }
 
+  // Run a gating governance call (evaluate, install-scan) bounded by `evaluateTimeoutMs` so a hung
+  // proxy fails closed promptly rather than stalling the hook indefinitely. The signal covers the
+  // whole operation (fetch + body read), so a stall mid-stream also aborts.
+  async function bounded<T>(op: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      controller.abort()
+    }, config.evaluateTimeoutMs)
+    try {
+      return await op(controller.signal)
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
   return {
     async evaluate(req) {
-      // Bound the call so a hung proxy fails closed promptly rather than stalling the turn.
-      const controller = new AbortController()
-      const timer = setTimeout(() => {
-        controller.abort()
-      }, config.evaluateTimeoutMs)
       try {
-        const res = await postJson(
-          '/evaluate',
-          { origin: config.origin, ...req },
-          controller.signal,
-        )
-        if (!res.ok) {
-          return { ok: false, reason: `Helio /evaluate returned ${String(res.status)}` }
-        }
-        const parsed = evaluateResponseSchema.safeParse(await res.json())
-        if (!parsed.success) {
-          return { ok: false, reason: 'Helio returned a malformed /evaluate response' }
-        }
-        return { ok: true, response: parsed.data }
+        return await bounded(async (signal): Promise<EvaluateOutcome> => {
+          const res = await postJson('/evaluate', { origin: config.origin, ...req }, signal)
+          if (!res.ok) {
+            return { ok: false, reason: `Helio /evaluate returned ${String(res.status)}` }
+          }
+          const parsed = evaluateResponseSchema.safeParse(await res.json())
+          if (!parsed.success) {
+            return { ok: false, reason: 'Helio returned a malformed /evaluate response' }
+          }
+          return { ok: true, response: parsed.data }
+        })
       } catch {
         return { ok: false, reason: 'Helio governance unavailable' }
-      } finally {
-        clearTimeout(timer)
       }
     },
 
@@ -208,17 +214,20 @@ export function createHelioClient(
     },
 
     async installScan(req) {
-      // Fail closed: if the scan can't be obtained, the install is blocked by the hook.
+      // Fail closed: if the scan can't be obtained (incl. a timeout), the install is blocked by
+      // the hook. Bounded like /evaluate so a hung proxy can't stall the install indefinitely.
       try {
-        const res = await postJson('/install-scan', { origin: config.origin, ...req })
-        if (!res.ok) {
-          return { ok: false, reason: `Helio /install-scan returned ${String(res.status)}` }
-        }
-        const parsed = installScanResponseSchema.safeParse(await res.json())
-        if (!parsed.success) {
-          return { ok: false, reason: 'Helio returned a malformed /install-scan response' }
-        }
-        return { ok: true, response: parsed.data }
+        return await bounded(async (signal): Promise<InstallScanOutcome> => {
+          const res = await postJson('/install-scan', { origin: config.origin, ...req }, signal)
+          if (!res.ok) {
+            return { ok: false, reason: `Helio /install-scan returned ${String(res.status)}` }
+          }
+          const parsed = installScanResponseSchema.safeParse(await res.json())
+          if (!parsed.success) {
+            return { ok: false, reason: 'Helio returned a malformed /install-scan response' }
+          }
+          return { ok: true, response: parsed.data }
+        })
       } catch {
         return { ok: false, reason: 'Helio governance unavailable' }
       }
