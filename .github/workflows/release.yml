@@ -2,7 +2,11 @@ name: Release
 
 # Manual tag-based release. Push an annotated tag `vX.Y.Z` that matches package.json
 # `version`; this workflow runs the full verify gate (via prepublishOnly) and publishes
-# `@gethelio/helio-openclaw` to npm with provenance. No tag → no publish.
+# `@gethelio/helio-openclaw` to npm. No tag → no publish.
+#
+# Auth is npm Trusted Publishing (OIDC) — no stored token. The package's npm settings must list
+# this repo + workflow (`release.yml`) under environment `npm` as a Trusted Publisher. Provenance
+# is generated automatically by the OIDC publish.
 on:
   push:
     tags: ['v*']
@@ -13,13 +17,14 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: write # npm provenance attestation
+  id-token: write # OIDC trusted publishing + provenance attestation
 
 jobs:
   publish:
     name: publish to npm
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment: npm
     steps:
       - uses: actions/checkout@v6
 
@@ -33,6 +38,9 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -45,9 +53,7 @@ jobs:
             exit 1
           fi
 
-      # prepublishOnly runs lint + typecheck + test + build before packing; publishConfig
-      # in package.json sets access:public and provenance:true.
+      # prepublishOnly runs lint + typecheck + test + build before packing; publishConfig in
+      # package.json sets access:public. Provenance comes from the OIDC publish.
       - name: Publish to npm
-        run: pnpm publish --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
