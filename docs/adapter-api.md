@@ -11,6 +11,8 @@ The governance API lives on the **SDK sideband** — the local server on `127.0.
 | `POST /install-scan`         | Evaluate a package/skill install against `policies.install` (observational when none defined). |
 | `POST /approval/:id/resolve` | Record the resolution of a natively-handled approval.                          |
 
+> **Sideband-only deployments:** these routes are served independently of any MCP upstream — the adapter carries tool definitions itself, so `/evaluate` decides correctly even when no `upstream` is reachable. If you run Helio purely as a sideband for an adapter (no MCP server to proxy), the `upstream … unreachable (ECONNREFUSED) — fail-closed` / annotation-cache-priming warnings at boot are **expected and benign**: they gate only the MCP `tools/call` path, not the governance routes documented here.
+
 ## Why this exists, and what it does not promise
 
 Helio's headline guarantee is **structural** enforcement: an agent speaking MCP physically cannot reach a tool except through the proxy. Hook-based frameworks run their tools in-process, so there is nothing to proxy — the framework's hook dispatcher is the enforcement point, and Helio supplies the decision. This is the standard policy-decision-point / policy-enforcement-point split.
